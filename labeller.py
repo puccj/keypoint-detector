@@ -5,82 +5,6 @@ import random
 import argparse
 from tqdm import tqdm
 
-def on_mouse(event, x, y, flags, param):
-    if event == cv2.EVENT_LBUTTONDOWN:
-        param['mousePosition'] = (x, y)
-    elif event == cv2.EVENT_RBUTTONDOWN:
-        param['mousePosition'] = (-2, -2)
-
-def select_points(image):
-    cv2.namedWindow('Select Points')
-    param = {'mousePosition': None}
-    cv2.setMouseCallback('Select Points', on_mouse, param)
-    
-    points = []
-
-    key = -1
-    while key != ord(' '):  # Exit on 'Space' key
-        display_image = image.copy()
-        for point in points:
-            cv2.drawMarker(display_image, point, (0, 255, 0), cv2.MARKER_TILTED_CROSS, 20, 2)
-
-        cv2.imshow('Select Points', display_image)
-
-        key = cv2.waitKey(20) & 0xFF
-
-
-        if param['mousePosition'] is not None:
-            if param['mousePosition'] == (-2, -2): # Remove last point
-                if points:
-                    points.pop()
-            else:
-                points.append(param['mousePosition'])
-            param['mousePosition'] = None
-
-        
-        if key == ord('q') or key == 27:  # Exit on 'q' or 'ESC' key
-            cv2.destroyWindow('Select Points')
-            return []
-
-    cv2.destroyAllWindows()
-    return points
-
-def label_images(input_dir, output_dir):
-    os.makedirs(output_dir, exist_ok=True)
-
-    image_extensions = ('.jpg', '.jpeg', '.png', '.bmp')
-    image_files = []
-    for file in os.listdir(input_dir):
-        if file.lower().endswith(image_extensions):
-            image_files.append(os.path.join(input_dir, file))
-
-    if not image_files:
-        print("No image files found in the specified directory.")
-        return
-    
-    print(f"Found {len(image_files)} image(s) in the directory.")
-
-    for image_path in image_files:
-        image = cv2.imread(image_path)
-        if image is None:
-            print(f"Warning: Could not read {image_path}")
-            continue
-
-        points = select_points(image)
-
-        if not points:
-            print(f"No points selected for {image_path}. Skipping.")
-            continue
-
-        output_filename = os.path.splitext(os.path.basename(image_path))[0] + '.txt'
-        output_path = os.path.join(output_dir, output_filename)
-
-        with open(output_path, 'w') as f:
-            for point in points:
-                f.write(f"{point[0]} {point[1]}\n")
-
-        print(f"Saved labels for {image_path} to {output_path}")
-
 def load_fisheye_params(path):
     """
     Load fisheye parameters from a file and return the camera intrinsic matrix (K) and distortion coefficients (D).
@@ -243,6 +167,95 @@ def extract_screenshots(video_dir, output_dir, num_screenshots=200, fisheye_matr
 
     print(f"Successfully saved {saved_number} screenshots to {output_dir}")
     return saved_number
+
+def on_mouse(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        param['mousePosition'] = (x, y)
+    elif event == cv2.EVENT_RBUTTONDOWN:
+        param['mousePosition'] = (-2, -2)
+
+def select_points(image):
+    cv2.namedWindow('Select Points')
+    param = {'mousePosition': None}
+    cv2.setMouseCallback('Select Points', on_mouse, param)
+    
+    points = []
+
+    key = -1
+    while key != ord(' '):  # Exit on 'Space' key
+        display_image = image.copy()
+        for point in points:
+            cv2.drawMarker(display_image, point, (0, 255, 0), cv2.MARKER_TILTED_CROSS, 20, 2)
+
+        cv2.imshow('Select Points', display_image)
+
+        key = cv2.waitKey(20) & 0xFF
+
+
+        if param['mousePosition'] is not None:
+            if param['mousePosition'] == (-2, -2): # Remove last point
+                if points:
+                    points.pop()
+            else:
+                points.append(param['mousePosition'])
+            param['mousePosition'] = None
+
+        
+        if key == ord('q') or key == 27:  # Exit on 'q' or 'ESC' key
+            cv2.destroyWindow('Select Points')
+            return []
+
+    cv2.destroyAllWindows()
+    return points
+
+def label_images(input_dir, output_dir):
+    """Present each image in the input directory to the user for point selection and save the selected points."""
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    image_extensions = ('.jpg', '.jpeg', '.png', '.bmp')
+    image_files = []
+    for file in os.listdir(input_dir):
+        if file.lower().endswith(image_extensions):
+            image_files.append(os.path.join(input_dir, file))
+
+    if not image_files:
+        print("No image files found in the specified directory.")
+        return
+    
+    print(f"Found {len(image_files)} image(s) in the directory.")
+
+    # Avoid re-labeling images
+    existing_labels = set()
+    for file in os.listdir(output_dir):
+        if file.lower().endswith('.txt'):
+            existing_labels.add(file)
+
+    for image_path in image_files:
+        
+
+        image = cv2.imread(image_path)
+        if image is None:
+            print(f"Warning: Could not read {image_path}")
+            continue
+
+        output_filename = os.path.splitext(os.path.basename(image_path))[0] + '.txt'
+        if output_filename in existing_labels:
+            print(f"Skipping {output_filename} as it already exists.")
+            continue
+
+        output_path = os.path.join(output_dir, output_filename)
+
+        points = select_points(image)
+        if not points:
+            print(f"No points selected for {image_path}. Skipping.")
+            continue
+
+        with open(output_path, 'w') as f:
+            for point in points:
+                f.write(f"{point[0]} {point[1]}\n")
+
+        print(f"Saved labels for {image_path} to {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract screenshots from videos with optional fisheye correction.")
