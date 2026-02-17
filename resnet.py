@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 from PIL import Image
 import os
+from tqdm import tqdm
 
 # ==========================================
 # 1. The Model Architecture (ResNet-18)
@@ -130,6 +131,8 @@ def train_model(model, train_loader, val_loader, num_epochs=10, lr=1e-4, save_in
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    model.to(device)
+
     train_losses = []
     val_losses = []
     best_val_loss = float('inf')
@@ -146,7 +149,7 @@ def train_model(model, train_loader, val_loader, num_epochs=10, lr=1e-4, save_in
 
         # Train step
         running_loss = 0.0
-        for images, targets in train_loader:
+        for images, targets in tqdm(train_loader):
             images, targets = images.to(device), targets.to(device)
 
             predictions = model(images)
@@ -170,7 +173,7 @@ def train_model(model, train_loader, val_loader, num_epochs=10, lr=1e-4, save_in
         model.eval()
         val_running_loss = 0.0
         with torch.no_grad():
-            for images, targets in val_loader:
+            for images, targets in tqdm(val_loader):
                 images, targets = images.to(device), targets.to(device)
                 predictions = model(images)
                 loss = criterion(predictions, targets)
