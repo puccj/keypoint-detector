@@ -42,9 +42,7 @@ class ResNet18(nn.Module):
 # ==========================================
 
 class KeypointDataset(Dataset):
-    """
-    Images and labels should be placed in separate directories with matching filenames.
-    """
+    """Images and labels should be placed in separate directories with matching filenames."""
     def __init__(self, images_dir, labels_dir, transform=None):
         self.image_dir = images_dir
         self.label_dir = labels_dir
@@ -79,6 +77,24 @@ class KeypointDataset(Dataset):
             image = self.transform(image)
         
         return image, torch.tensor(keypoints, dtype=torch.float32)
+
+class InferenceDataset(Dataset):
+    def __init__(self, image_paths, transform=None):
+        self.image_paths = image_paths
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.image_paths[idx]
+        image = Image.open(img_path).convert("RGB")
+        
+        if self.transform:
+            image = self.transform(image)
+            
+        # Return the image and its path so you know which prediction belongs to which file
+        return image, img_path 
 
 # ==========================================
 # 3. Training & Inference Utils
@@ -214,10 +230,11 @@ def predict_image(model, image_path, original_dims=(1920, 1080)):
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
+    model.to(device)
     
     # Preprocess
     transform = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize((1920, 1080)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
